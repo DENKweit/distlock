@@ -1,4 +1,4 @@
-module github.com/denkweit/distlock
+module github.com/DENKweit/distlock
 
 go 1.16
 

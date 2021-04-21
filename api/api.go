@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/denkweit/distlock/types"
+	"github.com/DENKweit/distlock/types"
 )
 
 type api struct {

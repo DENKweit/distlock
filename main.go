@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/lucsky/cuid"
 
-	"github.com/denkweit/distlock/types"
+	"github.com/DENKweit/distlock/types"
 )
 
 type session struct {
