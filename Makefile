@@ -11,4 +11,4 @@ linux:
 
 windows:
 	mkdir -p build/windows
-	GOOS=windows GOARCH=amd64 go build -o build/linux/distlock.exe main.go
+	GOOS=windows GOARCH=amd64 go build -o build/windows/distlock.exe main.go
