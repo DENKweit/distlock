@@ -10,23 +10,23 @@ import (
 	"github.com/DENKweit/distlock/types"
 )
 
-type api struct {
+type Client struct {
 	Url *url.URL
 }
 
-func NewClient(endpoint string) (*api, error) {
+func NewClient(endpoint string) (*Client, error) {
 	url, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
-	ret := &api{
+	ret := &Client{
 		Url: url,
 	}
 
 	return ret, nil
 }
 
-func (a *api) Status() (status types.StatusReturn, err error) {
+func (a *Client) Status() (status types.StatusReturn, err error) {
 	err = nil
 	status = types.StatusReturn{}
 
@@ -59,7 +59,7 @@ func (a *api) Status() (status types.StatusReturn, err error) {
 	return
 }
 
-func (a *api) Acquire(key string, value string, duration time.Duration) (success bool, sessionID string, err error) {
+func (a *Client) Acquire(key string, value string, duration time.Duration) (success bool, sessionID string, err error) {
 	err = nil
 	success = false
 	sessionID = ""
@@ -102,7 +102,7 @@ func (a *api) Acquire(key string, value string, duration time.Duration) (success
 	return
 }
 
-func (a *api) Release(key string, sessionID string) (success bool, err error) {
+func (a *Client) Release(key string, sessionID string) (success bool, err error) {
 	err = nil
 	success = false
 
@@ -139,7 +139,7 @@ func (a *api) Release(key string, sessionID string) (success bool, err error) {
 	return
 }
 
-func (a *api) Set(key string, value string, sessionID string) (success bool, err error) {
+func (a *Client) Set(key string, value string, sessionID string) (success bool, err error) {
 	err = nil
 	success = false
 
@@ -181,7 +181,7 @@ func (a *api) Set(key string, value string, sessionID string) (success bool, err
 	return
 }
 
-func (a *api) Get(key string) (ret *types.GetReturn, err error) {
+func (a *Client) Get(key string) (ret *types.GetReturn, err error) {
 	err = nil
 
 	url := fmt.Sprintf("%s/kv/get/%s", a.Url.String(), key)
@@ -215,7 +215,7 @@ func (a *api) Get(key string) (ret *types.GetReturn, err error) {
 	return
 }
 
-func (a *api) RenewSession(sessionID string, duration time.Duration) (err error) {
+func (a *Client) RenewSession(sessionID string, duration time.Duration) (err error) {
 	err = nil
 
 	url := fmt.Sprintf("%s/session/renew/%s/%d", a.Url.String(), sessionID, duration)
@@ -242,7 +242,7 @@ func (a *api) RenewSession(sessionID string, duration time.Duration) (err error)
 	return
 }
 
-func (a *api) DestroySession(sessionID string) (err error) {
+func (a *Client) DestroySession(sessionID string) (err error) {
 	err = nil
 	url := fmt.Sprintf("%s/session/destroy/%s", a.Url.String(), sessionID)
 
@@ -268,7 +268,7 @@ func (a *api) DestroySession(sessionID string) (err error) {
 	return
 }
 
-func (a *api) RenewSessionPerdiodic(sessionID string, interval time.Duration, doneCh <-chan struct{}) error {
+func (a *Client) RenewSessionPerdiodic(sessionID string, interval time.Duration, doneCh <-chan struct{}) error {
 
 	err := a.RenewSession(sessionID, interval+time.Second)
 	if err != nil {
@@ -299,7 +299,7 @@ func (a *api) RenewSessionPerdiodic(sessionID string, interval time.Duration, do
 	}
 }
 
-func (a *api) Keys(prefix string) (keys []string, err error) {
+func (a *Client) Keys(prefix string) (keys []string, err error) {
 	err = nil
 	keys = []string{}
 
