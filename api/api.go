@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -206,6 +207,103 @@ func (a *Client) Get(key string) (ret *types.GetReturn, err error) {
 	}
 
 	ret = &types.GetReturn{}
+
+	err = json.NewDecoder(resp.Body).Decode(&ret)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (a *Client) SetM(entries []types.KeyValue, sessionID string) (success bool, err error) {
+	err = nil
+	success = false
+
+	url := fmt.Sprintf("%s/kv/setm", a.Url.String())
+
+	message := types.SetMRequest{
+		Entries: entries,
+	}
+
+	messageBytes, err := json.Marshal(message)
+
+	if err != nil {
+		return false, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(messageBytes))
+
+	if err != nil {
+		return
+	}
+
+	q := req.URL.Query()
+	q.Add("sessionId", sessionID)
+	req.URL.RawQuery = q.Encode()
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	ret := &types.SetMReturn{}
+
+	err = json.NewDecoder(resp.Body).Decode(&ret)
+	if err != nil {
+		return
+	}
+
+	success = ret.Success
+
+	return
+}
+
+func (a *Client) GetM(keys []string) (ret *types.GetMReturn, err error) {
+	err = nil
+
+	url := fmt.Sprintf("%s/kv/getm", a.Url.String())
+
+	message := types.GetMRequest{
+		Keys: keys,
+	}
+
+	messageBytes, err := json.Marshal(message)
+
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(messageBytes))
+
+	if err != nil {
+		return
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	ret = &types.GetMReturn{}
 
 	err = json.NewDecoder(resp.Body).Decode(&ret)
 	if err != nil {

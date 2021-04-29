@@ -21,8 +21,9 @@ type session struct {
 }
 
 type lockableValue struct {
-	Value    string
-	IsLocked bool
+	Value     string
+	IsLocked  bool
+	SessionID *string
 }
 
 func startTimer(duration time.Duration, s *session, lock *sync.RWMutex, kvs map[string]*lockableValue, sessions map[string]*session) {
@@ -128,8 +129,9 @@ func main() {
 
 		if _, ok := kvs[key]; !ok {
 			kvs[key] = &lockableValue{
-				Value:    value,
-				IsLocked: false,
+				Value:     value,
+				IsLocked:  false,
+				SessionID: &ret.SessionID,
 			}
 		}
 
@@ -155,7 +157,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 
 		key := chi.URLParam(r, "key")
-		sessionId := chi.URLParam(r, "sessionId")
+		sessionID := chi.URLParam(r, "sessionId")
 
 		kvLock.Lock()
 
@@ -164,7 +166,7 @@ func main() {
 		}
 
 		if v, ok := kvs[key]; ok {
-			if session, sessionOk := sessions[sessionId]; sessionOk && session.Key == key {
+			if session, sessionOk := sessions[sessionID]; sessionOk && session.Key == key {
 				v.IsLocked = false
 				ret.Success = true
 			}
@@ -227,6 +229,80 @@ func main() {
 		}
 
 		kvLock.RUnlock()
+		json.NewEncoder(w).Encode(ret)
+		return
+	})
+
+	router.Get("/kv/getm", func(w http.ResponseWriter, r *http.Request) {
+
+		req := &types.GetMRequest{}
+		err := json.NewDecoder(r.Body).Decode(&req)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		ret := types.GetMReturn{
+			Entries: make([]types.KeyValueSuccess, len(req.Keys)),
+		}
+
+		kvLock.RLock()
+
+		for idx, key := range req.Keys {
+			v, ok := kvs[key]
+			if ok {
+				ret.Entries[idx].Success = true
+				ret.Entries[idx].Value = v.Value
+			}
+			ret.Entries[idx].Key = key
+		}
+
+		kvLock.RUnlock()
+
+		json.NewEncoder(w).Encode(ret)
+		return
+	})
+
+	router.Post("/kv/setm", func(w http.ResponseWriter, r *http.Request) {
+		req := &types.SetMRequest{}
+		err := json.NewDecoder(r.Body).Decode(&req)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		sessionID := r.URL.Query().Get("sessionId")
+
+		ret := types.SetMReturn{
+			Success: false,
+		}
+
+		kvLock.Lock()
+
+		for _, entry := range req.Entries {
+			if v, ok := kvs[entry.Key]; ok {
+				if v.IsLocked {
+					if sessionID == "" || (v.SessionID != nil && *v.SessionID != sessionID) {
+						kvLock.Unlock()
+						json.NewEncoder(w).Encode(ret)
+						return
+					}
+				}
+			}
+		}
+
+		for _, entry := range req.Entries {
+			kvs[entry.Key] = &lockableValue{Value: entry.Value, IsLocked: false}
+		}
+
+		kvLock.Unlock()
+
+		ret.Success = true
+
 		json.NewEncoder(w).Encode(ret)
 		return
 	})
