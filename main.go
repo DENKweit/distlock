@@ -255,6 +255,7 @@ func main() {
 				return
 			} else {
 				<-m
+
 				locksLock.Unlock()
 				ret := types.MutexReturn{
 					Success: true,
