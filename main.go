@@ -51,6 +51,9 @@ func main() {
 	kvLock := sync.RWMutex{}
 	kvs := map[string]*lockableValue{}
 
+	locksLock := sync.Mutex{}
+	locks := map[string]chan struct{}{}
+
 	router.Get("/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(types.StatusReturn{Running: true})
@@ -66,7 +69,7 @@ func main() {
 		interval, err := strconv.ParseInt(duration, 10, 64)
 
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -116,7 +119,7 @@ func main() {
 		interval, err := strconv.ParseInt(duration, 10, 64)
 
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -142,6 +145,10 @@ func main() {
 			sessions[ret.SessionID] = &session{
 				ID:  ret.SessionID,
 				Key: key,
+			}
+
+			if kvs[key].SessionID == nil {
+				kvs[key].SessionID = &ret.SessionID
 			}
 
 			startTimer(time.Duration(interval), sessions[ret.SessionID], &kvLock, kvs, sessions)
@@ -176,6 +183,179 @@ func main() {
 		json.NewEncoder(w).Encode(ret)
 		return
 
+	})
+
+	router.Post("/mutex/lock/{key}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		key := chi.URLParam(r, "key")
+		timeoutStr := r.URL.Query().Get("timeout")
+		var timeout *time.Duration
+
+		if timeoutStr != "" {
+			interval, err := strconv.ParseInt(timeoutStr, 10, 64)
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			if interval <= 0 {
+				http.Error(w, "timeout must be >= 0", http.StatusBadRequest)
+				return
+			}
+
+			t := time.Duration(interval)
+
+			timeout = &t
+		}
+
+		var currentMutex chan struct{}
+
+		locksLock.Lock()
+
+		if m, ok := locks[key]; ok {
+			currentMutex = m
+		} else {
+			locks[key] = make(chan struct{}, 1)
+			currentMutex = locks[key]
+		}
+
+		locksLock.Unlock()
+
+		if timeout == nil {
+			select {
+			case currentMutex <- struct{}{}:
+			}
+		} else {
+			select {
+			case currentMutex <- struct{}{}:
+			case <-time.After(*timeout):
+			}
+		}
+
+		ret := types.MutexReturn{
+			Success: true,
+		}
+
+		json.NewEncoder(w).Encode(ret)
+	})
+
+	router.Post("/mutex/unlock/{key}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		key := chi.URLParam(r, "key")
+
+		locksLock.Lock()
+
+		if m, ok := locks[key]; ok {
+			if len(m) == 0 {
+				locksLock.Unlock()
+				http.Error(w, "can't unlock unlocked mutex", http.StatusBadRequest)
+				return
+			} else {
+				<-m
+				locksLock.Unlock()
+				ret := types.MutexReturn{
+					Success: true,
+				}
+				json.NewEncoder(w).Encode(ret)
+				return
+			}
+		}
+
+		locksLock.Unlock()
+		http.Error(w, "mutex does not exist", http.StatusBadRequest)
+		return
+	})
+
+	router.Post("/int/{key}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		key := chi.URLParam(r, "key")
+		sessionId := r.URL.Query().Get("sessionId")
+		op := r.URL.Query().Get("op")
+		value := r.URL.Query().Get("value")
+
+		ret := types.IntReturn{
+			Success: false,
+			Op:      op,
+		}
+
+		kvLock.Lock()
+
+		if op != string(types.IntOpTypeGet) {
+			if v, ok := kvs[key]; ok {
+				if v.SessionID != nil && *v.SessionID != sessionId {
+					kvLock.Unlock()
+					json.NewEncoder(w).Encode(ret)
+					return
+				}
+			}
+		}
+
+		if _, ok := kvs[key]; !ok {
+			kvs[key] = &lockableValue{
+				Value:    strconv.FormatInt(0, 10),
+				IsLocked: false,
+			}
+		}
+
+		switch op {
+		case string(types.IntOpTypeInc):
+			if kvs[key].Value == "" {
+				kvs[key].Value = "0"
+			}
+			currentValue, err := strconv.ParseInt(kvs[key].Value, 10, 64)
+			if err != nil {
+				kvLock.Unlock()
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			currentValue++
+			ret.Value = currentValue
+			ret.Success = true
+			kvs[key].Value = strconv.FormatInt(currentValue, 10)
+		case string(types.IntOpTypeDec):
+			if kvs[key].Value == "" {
+				kvs[key].Value = "0"
+			}
+			currentValue, err := strconv.ParseInt(kvs[key].Value, 10, 64)
+			if err != nil {
+				kvLock.Unlock()
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			currentValue--
+			ret.Success = true
+			ret.Value = currentValue
+			kvs[key].Value = strconv.FormatInt(currentValue, 10)
+		case string(types.IntOpTypeGet):
+			if kvs[key].Value == "" {
+				kvs[key].Value = "0"
+			}
+			currentValue, err := strconv.ParseInt(kvs[key].Value, 10, 64)
+			if err != nil {
+				kvLock.Unlock()
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			ret.Success = true
+			ret.Value = currentValue
+		case string(types.IntOpTypeSet):
+			currentValue, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				kvLock.Unlock()
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			ret.Value = currentValue
+			ret.Success = true
+			kvs[key].Value = strconv.FormatInt(currentValue, 10)
+		}
+
+		kvLock.Unlock()
+		json.NewEncoder(w).Encode(ret)
 	})
 
 	router.Post("/kv/set/{key}", func(w http.ResponseWriter, r *http.Request) {
@@ -240,6 +420,7 @@ func main() {
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -271,6 +452,7 @@ func main() {
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")

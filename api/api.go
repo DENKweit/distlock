@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/DENKweit/distlock/types"
@@ -136,6 +137,247 @@ func (a *Client) Release(key string, sessionID string) (success bool, err error)
 	}
 
 	success = ret.Success
+
+	return
+}
+
+func (a *Client) IntSet(key string, value int64, sessionID string) (ret *types.IntReturn, err error) {
+	err = nil
+	ret = &types.IntReturn{
+		Success: false,
+	}
+
+	url := fmt.Sprintf("%s/int/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	q := req.URL.Query()
+	q.Add("sessionId", sessionID)
+	q.Add("value", strconv.FormatInt(value, 10))
+	q.Add("op", string(types.IntOpTypeSet))
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (a *Client) IntGet(key string, sessionID string) (ret *types.IntReturn, err error) {
+	err = nil
+	ret = &types.IntReturn{
+		Success: false,
+	}
+
+	url := fmt.Sprintf("%s/int/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	q := req.URL.Query()
+	q.Add("sessionId", sessionID)
+	q.Add("op", string(types.IntOpTypeGet))
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (a *Client) LockMutex(key string, timeout *time.Duration) (success bool, err error) {
+	err = nil
+	success = false
+
+	url := fmt.Sprintf("%s/mutex/lock/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	if timeout != nil {
+		q := req.URL.Query()
+		q.Add("timeout", strconv.FormatInt(int64(*timeout), 10))
+		req.URL.RawQuery = q.Encode()
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	ret := &types.MutexReturn{}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
+
+	success = ret.Success
+
+	return
+}
+
+func (a *Client) UnlockMutex(key string) (success bool, err error) {
+	err = nil
+	success = false
+
+	url := fmt.Sprintf("%s/mutex/unlock/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	ret := &types.MutexReturn{}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
+
+	success = ret.Success
+
+	return
+}
+
+func (a *Client) IntInc(key string, sessionID string) (ret *types.IntReturn, err error) {
+	err = nil
+	ret = &types.IntReturn{
+		Success: false,
+	}
+
+	url := fmt.Sprintf("%s/int/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	q := req.URL.Query()
+	q.Add("sessionId", sessionID)
+	q.Add("op", string(types.IntOpTypeInc))
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (a *Client) IntDec(key string, sessionID string) (ret *types.IntReturn, err error) {
+	err = nil
+	ret = &types.IntReturn{
+		Success: false,
+	}
+
+	url := fmt.Sprintf("%s/int/%s", a.Url.String(), key)
+
+	req, err := http.NewRequest("POST", url, nil)
+
+	if err != nil {
+		return
+	}
+
+	q := req.URL.Query()
+	q.Add("sessionId", sessionID)
+	q.Add("op", string(types.IntOpTypeDec))
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Error: %s", resp.Status)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(ret)
+	if err != nil {
+		return
+	}
 
 	return
 }

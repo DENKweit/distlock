@@ -48,3 +48,22 @@ type SetMReturn struct {
 type StatusReturn struct {
 	Running bool `json:"running"`
 }
+
+type IntReturn struct {
+	Value   int64  `json:"value"`
+	Success bool   `json:"success"`
+	Op      string `json:"op"`
+}
+
+type IntOpType string
+
+const (
+	IntOpTypeInc IntOpType = "inc"
+	IntOpTypeDec IntOpType = "dec"
+	IntOpTypeSet IntOpType = "set"
+	IntOpTypeGet IntOpType = "get"
+)
+
+type MutexReturn struct {
+	Success bool `json:"success"`
+}
