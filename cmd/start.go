@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"encoding/json"
@@ -39,7 +39,7 @@ func startTimer(duration time.Duration, s *session, lock *sync.RWMutex, kvs map[
 	})
 }
 
-func main() {
+func Start() {
 
 	var port int
 	flag.IntVar(&port, "port", 9876, "set port")
