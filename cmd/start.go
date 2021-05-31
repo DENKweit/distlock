@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"flag"
 	"net/http"
 	"strconv"
 	"sync"
@@ -39,12 +38,7 @@ func startTimer(duration time.Duration, s *session, lock *sync.RWMutex, kvs map[
 	})
 }
 
-func Start() {
-
-	var port int
-	flag.IntVar(&port, "port", 9876, "set port")
-	flag.Parse()
-
+func Start(port int) {
 	router := chi.NewRouter()
 
 	sessions := map[string]*session{}
