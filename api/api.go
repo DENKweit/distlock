@@ -49,7 +49,7 @@ func (a *Client) Status() (status types.StatusReturn, err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (a *Client) Acquire(key string, value string, duration time.Duration) (succ
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (a *Client) Release(key string, sessionID string) (success bool, err error)
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -170,7 +170,7 @@ func (a *Client) IntSet(key string, value int64, sessionID string) (ret *types.I
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -210,7 +210,7 @@ func (a *Client) IntGet(key string, sessionID string) (ret *types.IntReturn, err
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -249,7 +249,7 @@ func (a *Client) LockMutex(key string, timeout *time.Duration) (success bool, er
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -286,7 +286,7 @@ func (a *Client) UnlockMutex(key string) (success bool, err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -330,7 +330,7 @@ func (a *Client) IntInc(key string, sessionID string) (ret *types.IntReturn, err
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -370,7 +370,7 @@ func (a *Client) IntDec(key string, sessionID string) (ret *types.IntReturn, err
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -408,7 +408,7 @@ func (a *Client) Set(key string, value string, sessionID string) (success bool, 
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -444,7 +444,7 @@ func (a *Client) Get(key string) (ret *types.GetReturn, err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -495,7 +495,7 @@ func (a *Client) SetM(entries []types.KeyValue, sessionID string) (success bool,
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -541,7 +541,7 @@ func (a *Client) GetM(keys []string) (ret *types.GetMReturn, err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -575,7 +575,7 @@ func (a *Client) RenewSession(sessionID string, duration time.Duration) (err err
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
@@ -601,33 +601,29 @@ func (a *Client) DestroySession(sessionID string) (err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
 	return
 }
 
-func (a *Client) RenewSessionPerdiodic(sessionID string, interval time.Duration, doneCh <-chan struct{}) error {
+func (a *Client) RenewSessionPeriodic(sessionID string, interval time.Duration, doneCh <-chan struct{}) error {
 
 	err := a.RenewSession(sessionID, interval+time.Second)
 	if err != nil {
 		return err
 	}
-	timer := time.NewTimer(interval)
+	timer := time.NewTicker(interval)
 
 	for {
 		select {
 		case <-timer.C:
 			err := a.RenewSession(sessionID, interval+time.Second)
 
-			timer.Stop()
-
 			if err != nil {
 				return err
 			}
-
-			timer.Reset(interval)
 		case <-doneCh:
 			timer.Stop()
 			err := a.DestroySession(sessionID)
@@ -635,6 +631,8 @@ func (a *Client) RenewSessionPerdiodic(sessionID string, interval time.Duration,
 			if err != nil {
 				return err
 			}
+
+			return nil
 		}
 	}
 }
@@ -664,7 +662,7 @@ func (a *Client) Keys(prefix string) (keys []string, err error) {
 	}
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Error: %s", resp.Status)
+		err = fmt.Errorf("error: %s", resp.Status)
 		return
 	}
 
